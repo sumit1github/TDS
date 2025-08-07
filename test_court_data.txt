@@ -1,0 +1,14 @@
+Analyze the Indian High Court judgment dataset using DuckDB to query the S3 data.
+
+```sql
+INSTALL httpfs; LOAD httpfs;
+INSTALL parquet; LOAD parquet;
+
+SELECT COUNT(*) FROM read_parquet('s3://indian-high-court-judgments/metadata/parquet/year=*/court=*/bench=*/metadata.parquet?s3_region=ap-south-1');
+```
+
+Answer the following questions and respond with a JSON object:
+
+"Which high court disposed the most cases from 2019 - 2022?"
+"What's the regression slope of the date_of_registration - decision_date by year in the court=33_10?"
+"Plot the year and # of days of delay from the above question as a scatterplot with a regression line. Encode as a base64 data URI under 100,000 characters"
