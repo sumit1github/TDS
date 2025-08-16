@@ -624,16 +624,64 @@ class DataAnalystOrchestrator:
         self.visualization = VisualizationAgent()
         self.response = ResponseAgent()
     
-    async def process_task(self, task_description: str) -> Any:
+    async def process_task(self, task_description: str, additional_files: Optional[Dict[str, Any]] = None) -> Any:
         """Main orchestration method with optimized LLM usage"""
         try:
-            # Step 1: LLM Call #1 - Generate execution plan and scraping code
+            # Step 1: Process additional files if provided
+            additional_data = {}
+            if additional_files:
+                for filename, file_info in additional_files.items():
+                    content = file_info.get('content')
+                    content_type = file_info.get('content_type', 'application/octet-stream')
+                    
+                    # Handle different file types
+                    if filename.endswith('.csv') or 'csv' in content_type:
+                        # Parse CSV data
+                        try:
+                            csv_data = pd.read_csv(io.BytesIO(content))
+                            additional_data[filename] = csv_data
+                            print(f"Loaded CSV file {filename} with shape: {csv_data.shape}")
+                        except Exception as e:
+                            print(f"Error parsing CSV {filename}: {e}")
+                    
+                    elif filename.endswith(('.txt', '.md')) or 'text' in content_type:
+                        # Parse text data
+                        try:
+                            text_content = content.decode('utf-8')
+                            additional_data[filename] = text_content
+                            print(f"Loaded text file {filename}")
+                        except Exception as e:
+                            print(f"Error parsing text file {filename}: {e}")
+                    
+                    elif filename.endswith(('.png', '.jpg', '.jpeg', '.gif')) or 'image' in content_type:
+                        # Store image data as base64
+                        try:
+                            image_b64 = base64.b64encode(content).decode('utf-8')
+                            additional_data[filename] = f"data:{content_type};base64,{image_b64}"
+                            print(f"Loaded image file {filename}")
+                        except Exception as e:
+                            print(f"Error processing image {filename}: {e}")
+                    
+                    else:
+                        # Store raw content for other file types
+                        additional_data[filename] = content
+                        print(f"Loaded raw file {filename}")
+            
+            # Step 2: LLM Call #1 - Generate execution plan and scraping code
+            # Pass additional files info to task interpreter
             task_info = await self.task_interpreter.interpret_task(task_description)
             
-            # Step 2: Execute scraping using LLM-generated code or fallback
+            # Step 3: Execute scraping using LLM-generated code or fallback
             df = pd.DataFrame()
             
-            if task_info['data_sources']:
+            # First check if we have CSV data in additional files
+            csv_files = [k for k in additional_data.keys() if k.endswith('.csv')]
+            if csv_files:
+                # Use the first CSV file as main data source
+                df = additional_data[csv_files[0]]
+                print(f"Using CSV data from {csv_files[0]} with shape: {df.shape}")
+            
+            elif task_info['data_sources']:
                 for url in task_info['data_sources']:
                     if 'wikipedia.org' in url:
                         if task_info.get('scraping_code'):
@@ -662,7 +710,7 @@ class DataAnalystOrchestrator:
                 else:
                     df = await self.data_sourcing.load_court_metadata()
             
-            # Step 3: Prepare data
+            # Step 4: Prepare data
             if not df.empty:
                 print(f"Debug: Data scraped successfully. Shape: {df.shape}")
                 print(f"Debug: Columns: {list(df.columns)}")
@@ -674,7 +722,7 @@ class DataAnalystOrchestrator:
             else:
                 print("Debug: No data scraped from source")
             
-            # Step 4: Process questions in batches (2-3 at a time)
+            # Step 5: Process questions in batches (2-3 at a time)
             questions = task_info.get('questions', [])
             all_answers = []
             
@@ -694,7 +742,7 @@ class DataAnalystOrchestrator:
                     batch_answers = llm_result.get('answers', [])
                     all_answers.extend(batch_answers)
             
-            # Step 5: Fallback analysis if LLM fails or no LLM available
+            # Step 6: Fallback analysis if LLM fails or no LLM available
             if not all_answers:
                 if 'court' in task_description.lower():
                     questions_dict = {q: "" for q in questions}
@@ -724,7 +772,7 @@ class DataAnalystOrchestrator:
                             # Add placeholder if columns not found
                             all_answers.append("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==")
             
-            # Step 6: Add visualization if requested
+            # Step 7: Add visualization if requested
             if task_info.get('visualizations') and not df.empty:
                 if 'court' in task_description.lower():
                     # Court data visualization
