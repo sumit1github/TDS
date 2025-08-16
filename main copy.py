@@ -13,7 +13,7 @@ load_dotenv()
 app = FastAPI()
 
 
-@app.post("/")
+@app.get("/")
 async def test():
     return {
         "status":"working"
