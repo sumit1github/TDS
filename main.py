@@ -13,6 +13,13 @@ load_dotenv()
 
 app = FastAPI()
 
+@app.get("/")
+async def test():
+    return {
+        "status":"working"
+    }
+
+
 @app.get("/api/")
 async def analyze_task(files: List[UploadFile] = File(...)):
     try:

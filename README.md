@@ -96,4 +96,4 @@ uv sync
 # to start server
 
 source .venv/bin/activate
-
+sudo supervisorctl status
