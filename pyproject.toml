@@ -26,6 +26,7 @@ dependencies = [
     "kiwisolver==1.4.8",
     "lxml==6.0.0",
     "matplotlib==3.10.5",
+    "networkx>=3.5",
     "numpy==2.3.2",
     "packaging==25.0",
     "pandas==2.3.1",
