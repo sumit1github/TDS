@@ -13,7 +13,7 @@ load_dotenv()
 
 app = FastAPI()
 
-@app.post("/api/")
+@app.get("/api/")
 async def analyze_task(files: List[UploadFile] = File(...)):
     try:
         # Find the questions.txt file (required)
